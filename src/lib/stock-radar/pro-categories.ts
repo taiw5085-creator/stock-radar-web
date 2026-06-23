@@ -1,69 +1,62 @@
-import {
-  filterByCategory,
-  getTopTen,
-  isAccumulation,
-  isJustBreakout,
-} from "./categories";
-import type { ProCategoryKey, ScoredStock } from "./types";
+import { getTopTen, isAccumulation } from "./categories";
+import type { RadarListKey, ScoredStock } from "./types";
 
-export const PRO_CATEGORY_LABELS: Record<ProCategoryKey, string> = {
-  top10: "TOP 10",
-  breakout: "剛突破",
-  volumeNotSpiked: "爆量未噴",
-  accumulation: "吸籌型",
+export const RADAR_LIST_LABELS: Record<RadarListKey, string> = {
+  breakout: "🚨 剛突破",
+  volumeNotSpiked: "📈 爆量未噴",
+  accumulation: "🧠 吸籌型",
 };
 
-/** 爆量未噴：量能放大但漲幅 ≤ 3% 且未突破 20 日高 */
-export function isVolumeNotSpiked(stock: ScoredStock): boolean {
+const VOLUME_SURGE_RATIO = 1.5;
+
+/** 🚨 剛突破：即時價突破 20 日高 + 量能 > 20 日均量 1.5 倍 */
+export function isLiveJustBreakout(stock: ScoredStock): boolean {
+  return stock.liveBreakout && stock.volumeMultiplier >= VOLUME_SURGE_RATIO;
+}
+
+/** 📈 爆量未噴：量能 > 1.5x、漲幅 0~3%、尚未突破 20 日高 */
+export function isLiveVolumeNotSpiked(stock: ScoredStock): boolean {
   return (
-    stock.conditions.volumeSurge &&
+    stock.volumeMultiplier >= VOLUME_SURGE_RATIO &&
     stock.changePercent >= 0 &&
     stock.changePercent <= 3 &&
-    !stock.brokeHigh20
+    !stock.liveBreakout
   );
 }
 
-export function filterByProCategory(
+/** 🧠 吸籌型：10 日震盪 < 8%、均量放大、今日漲幅 < 3% */
+export function isProAccumulation(stock: ScoredStock): boolean {
+  return (
+    stock.priceRange10Pct < 8 &&
+    stock.volumeTrendUp &&
+    stock.changePercent < 3
+  );
+}
+
+export function countRadarCategories(
+  stocks: ScoredStock[]
+): Record<RadarListKey, number> {
+  return {
+    breakout: stocks.filter(isLiveJustBreakout).length,
+    volumeNotSpiked: stocks.filter(isLiveVolumeNotSpiked).length,
+    accumulation: stocks.filter(isProAccumulation).length,
+  };
+}
+
+export function filterByRadarCategory(
   stocks: ScoredStock[],
-  category: ProCategoryKey
+  category: RadarListKey
 ): ScoredStock[] {
   switch (category) {
-    case "top10":
-      return getTopTen(stocks);
     case "breakout":
-      return stocks.filter(isJustBreakout);
+      return stocks.filter(isLiveJustBreakout);
     case "volumeNotSpiked":
-      return stocks.filter(isVolumeNotSpiked);
+      return stocks.filter(isLiveVolumeNotSpiked);
     case "accumulation":
-      return stocks.filter(isAccumulation);
+      return stocks.filter(isProAccumulation);
     default:
       return stocks;
   }
 }
 
-export function filterProWithWatchlist(
-  stocks: ScoredStock[],
-  category: ProCategoryKey,
-  watchlistSymbols: string[]
-): ScoredStock[] {
-  const filtered = filterByProCategory(stocks, category);
-  if (watchlistSymbols.length === 0) return filtered;
-  return filtered;
-}
-
-/** 自選股排序：自選優先 */
-export function sortWatchlistFirst(
-  stocks: ScoredStock[],
-  watchlistSymbols: string[]
-): ScoredStock[] {
-  if (watchlistSymbols.length === 0) return stocks;
-  const watchSet = new Set(watchlistSymbols);
-  return [...stocks].sort((a, b) => {
-    const aW = watchSet.has(a.symbol) ? 0 : 1;
-    const bW = watchSet.has(b.symbol) ? 0 : 1;
-    if (aW !== bW) return aW - bW;
-    return b.score - a.score;
-  });
-}
-
-export { filterByCategory, getTopTen, isJustBreakout, isAccumulation };
+export { getTopTen, isAccumulation };

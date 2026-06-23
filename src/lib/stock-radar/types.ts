@@ -78,12 +78,14 @@ export type CategoryKey =
   | "accumulation"
   | "watchlist";
 
-/** Pro 桌面版分類 */
-export type ProCategoryKey =
-  | "top10"
+/** Pro 雷達清單分類（左側） */
+export type RadarListKey =
   | "breakout"
   | "volumeNotSpiked"
   | "accumulation";
+
+/** @deprecated 使用 RadarListKey；TOP 10 改為 header 快捷按鈕 */
+export type ProCategoryKey = RadarListKey | "top10";
 
 /** 分類標籤（不影響評分） */
 export type SpotlightTag =

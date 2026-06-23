@@ -4,20 +4,18 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   DataSourceMeta,
-  ProCategoryKey,
+  RadarListKey,
   RadarStats,
   ScoredStock,
 } from "@/lib/stock-radar/types";
 import type { LiveQuote } from "@/lib/stock-radar/live-types";
 import type { QuotesApiResponse } from "@/lib/stock-radar/live-types";
-import { useWatchlist } from "@/hooks/useWatchlist";
 import { useLiveFlash } from "@/hooks/useLiveFlash";
 import {
-  filterByProCategory,
-  isVolumeNotSpiked,
-  isJustBreakout,
-  isAccumulation,
+  countRadarCategories,
+  filterByRadarCategory,
   getTopTen,
+  isLiveJustBreakout,
 } from "@/lib/stock-radar/pro-categories";
 import { applyLiveQuote } from "@/lib/stock-radar/merge-live";
 import { detectLiveChanges, isFieldFlashing } from "@/lib/stock-radar/live-flash";
@@ -27,9 +25,9 @@ import {
   mergeLinePushLog,
   type LinePushEntry,
 } from "@/lib/stock-radar/line-push-log";
-import { ProCategoryTabs } from "./ProCategoryTabs";
 import { ProMarketOverview } from "./ProMarketOverview";
-import { ProWatchlistPanel } from "./ProWatchlistPanel";
+import { ProRadarList } from "./ProRadarList";
+import { ProTopTenButton } from "./ProTopTenButton";
 import { ProChart } from "./ProChart";
 import { ProAiPanel } from "./ProAiPanel";
 import { ProLiveSignals } from "./ProLiveSignals";
@@ -45,13 +43,9 @@ interface ProDashboardProps {
   meta: DataSourceMeta;
 }
 
-function countCategories(stocks: ScoredStock[]): Record<ProCategoryKey, number> {
-  return {
-    top10: getTopTen(stocks).length,
-    breakout: stocks.filter(isJustBreakout).length,
-    volumeNotSpiked: stocks.filter(isVolumeNotSpiked).length,
-    accumulation: stocks.filter(isAccumulation).length,
-  };
+function pickInitialSymbol(stocks: ScoredStock[]): string {
+  const breakout = stocks.filter(isLiveJustBreakout);
+  return breakout[0]?.symbol ?? stocks[0]?.symbol ?? "";
 }
 
 function mergeQuotesIntoStocks(
@@ -74,9 +68,10 @@ export function ProDashboard({
   const historicalSource = meta.historical === "mock" ? "mock" : "finmind";
 
   const [stocks, setStocks] = useState(initialStocks);
-  const [category, setCategory] = useState<ProCategoryKey>("top10");
-  const [selectedSymbol, setSelectedSymbol] = useState(
-    initialStocks[0]?.symbol ?? ""
+  const [radarCategory, setRadarCategory] = useState<RadarListKey>("breakout");
+  const [showTopTen, setShowTopTen] = useState(false);
+  const [selectedSymbol, setSelectedSymbol] = useState(() =>
+    pickInitialSymbol(initialStocks)
   );
   const [signals, setSignals] = useState<LiveSignal[]>(() =>
     buildLiveSignals(initialStocks)
@@ -90,19 +85,19 @@ export function ProDashboard({
   const [yahooError, setYahooError] = useState<string | null>(null);
 
   const { flashMap, triggerFlash } = useLiveFlash();
-  const { symbols, toggle, isWatchlisted, loaded } = useWatchlist();
 
   const symbolKey = useMemo(
     () => initialStocks.map((s) => s.symbol).join(","),
     [initialStocks]
   );
 
-  const categoryCounts = useMemo(() => countCategories(stocks), [stocks]);
+  const radarCounts = useMemo(() => countRadarCategories(stocks), [stocks]);
+  const topTenStocks = useMemo(() => getTopTen(stocks), [stocks]);
 
-  const filteredStocks = useMemo(
-    () => filterByProCategory(stocks, category),
-    [stocks, category]
-  );
+  const listStocks = useMemo(() => {
+    if (showTopTen) return topTenStocks;
+    return filterByRadarCategory(stocks, radarCategory);
+  }, [stocks, radarCategory, showTopTen, topTenStocks]);
 
   const selectedStock = useMemo(
     () => stocks.find((s) => s.symbol === selectedSymbol) ?? null,
@@ -162,6 +157,15 @@ export function ProDashboard({
     void refreshLive();
   }, [refreshLive]);
 
+  const handleRadarCategoryChange = useCallback((key: RadarListKey) => {
+    setShowTopTen(false);
+    setRadarCategory(key);
+  }, []);
+
+  const handleTopTenToggle = useCallback(() => {
+    setShowTopTen((prev) => !prev);
+  }, []);
+
   useEffect(() => {
     void refreshLive();
   }, [refreshLive]);
@@ -180,12 +184,12 @@ export function ProDashboard({
 
   useEffect(() => {
     if (
-      filteredStocks.length > 0 &&
-      !filteredStocks.some((s) => s.symbol === selectedSymbol)
+      listStocks.length > 0 &&
+      !listStocks.some((s) => s.symbol === selectedSymbol)
     ) {
-      setSelectedSymbol(filteredStocks[0].symbol);
+      setSelectedSymbol(listStocks[0].symbol);
     }
-  }, [filteredStocks, selectedSymbol]);
+  }, [listStocks, selectedSymbol]);
 
   const isFlashing = useCallback(
     (symbol: string, field: Parameters<typeof isFieldFlashing>[2]) =>
@@ -196,14 +200,14 @@ export function ProDashboard({
   return (
     <div className="flex h-screen flex-col bg-slate-950 text-slate-100">
       <header className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-800 px-5 py-3">
-        <div className="flex min-w-0 items-center gap-4">
+        <div className="flex min-w-0 items-center gap-3">
           <h1 className="shrink-0 text-lg font-bold text-white">
             飆股雷達 <span className="text-emerald-400">Pro</span>
           </h1>
-          <ProCategoryTabs
-            active={category}
-            onChange={setCategory}
-            counts={categoryCounts}
+          <ProTopTenButton
+            active={showTopTen}
+            count={topTenStocks.length}
+            onClick={handleTopTenToggle}
           />
         </div>
         <div className="flex shrink-0 items-start gap-3">
@@ -228,28 +232,24 @@ export function ProDashboard({
           <ProMarketOverview
             stats={stats}
             meta={meta}
-            stockCount={filteredStocks.length}
+            stockCount={listStocks.length}
             signalCount={signals.length}
           />
-          {loaded && (
-            <ProWatchlistPanel
-              stocks={filteredStocks}
-              selectedSymbol={selectedSymbol}
-              watchlistSymbols={symbols}
-              onSelect={setSelectedSymbol}
-              onToggleWatchlist={toggle}
-              isWatchlisted={isWatchlisted}
-              isFlashing={isFlashing}
-            />
-          )}
+          <ProRadarList
+            stocks={listStocks}
+            category={radarCategory}
+            selectedSymbol={selectedSymbol}
+            counts={radarCounts}
+            onCategoryChange={handleRadarCategoryChange}
+            onSelect={setSelectedSymbol}
+            isFlashing={isFlashing}
+            variant={showTopTen ? "top10" : "radar"}
+          />
         </aside>
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
           <div className="min-h-0 flex-1">
-            <ProChart
-              stock={selectedStock}
-              isFlashing={isFlashing}
-            />
+            <ProChart stock={selectedStock} isFlashing={isFlashing} />
           </div>
           <div className="grid h-48 shrink-0 grid-cols-1 gap-3 md:grid-cols-2">
             <ProLiveSignals
