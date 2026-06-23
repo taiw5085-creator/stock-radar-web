@@ -1,6 +1,5 @@
 import type { ScoredStock } from "@/lib/stock-radar/types";
 
-/** 依未符合條件產生風險提醒（僅 UI） */
 export function buildRiskHint(stock: ScoredStock): string {
   const warnings: string[] = [];
 
@@ -8,6 +7,8 @@ export function buildRiskHint(stock: ScoredStock): string {
   if (!stock.conditions.bullishMA) warnings.push("均線弱");
   if (!stock.conditions.volumeSurge) warnings.push("量能不足");
   if (!stock.conditions.strongGain) warnings.push("漲幅不足");
+  if (stock.foreignNetToday < 0) warnings.push("外資賣超");
+  if (stock.trustNetToday < 0) warnings.push("投信賣超");
 
   if (warnings.length === 0) return "無";
   return warnings.join("、");

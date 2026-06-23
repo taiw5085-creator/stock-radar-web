@@ -1,26 +1,40 @@
+import { getMockRawStocks } from "@/data/mock-stocks";
 import { scoreStock, sortByScore } from "./scoring";
 import { fetchWatchlistRawStocks } from "./finmind";
 import type { RadarStats, ScoredStock } from "./types";
 
+export type DataSource = "finmind" | "mock";
+
+function scoreFromRaw(rawStocks: ReturnType<typeof getMockRawStocks>): ScoredStock[] {
+  return sortByScore(rawStocks.map(scoreStock));
+}
+
 /**
  * 股票資料取得層
- *
- * 資料來源：FinMind API（TaiwanStockPrice）
- * 之後可改為 Supabase (stock-radar-db) 每日快取
+ * API 失敗或無資料時 fallback 至 mock
  */
-export async function getScoredStocks(): Promise<ScoredStock[]> {
+export async function getScoredStocks(): Promise<{
+  stocks: ScoredStock[];
+  source: DataSource;
+}> {
   try {
     const rawStocks = await fetchWatchlistRawStocks();
-    const scored = rawStocks.map(scoreStock);
-    return sortByScore(scored);
+    if (rawStocks.length === 0) {
+      console.warn("[getScoredStocks] FinMind 無資料，使用 mock fallback");
+      return { stocks: scoreFromRaw(getMockRawStocks()), source: "mock" };
+    }
+    return {
+      stocks: sortByScore(rawStocks.map(scoreStock)),
+      source: "finmind",
+    };
   } catch (error) {
-    console.error("[getScoredStocks] FinMind 資料取得失敗:", error);
-    return [];
+    console.error("[getScoredStocks] FinMind 失敗，使用 mock fallback:", error);
+    return { stocks: scoreFromRaw(getMockRawStocks()), source: "mock" };
   }
 }
 
 export function buildRadarStats(stocks: ScoredStock[]): RadarStats {
-  const highScoreCount = stocks.filter((s) => s.score >= 75).length;
+  const highScoreCount = stocks.filter((s) => s.score >= 130).length;
 
   const topStock =
     stocks.length > 0
@@ -39,7 +53,6 @@ export function buildRadarStats(stocks: ScoredStock[]): RadarStats {
   return { highScoreCount, topStock, avgVolumeMultiplier };
 }
 
-/** 轉為 API 輸出格式（stockId / volumeRatio / breakout 等） */
 export function toStockRadarOutput(stock: ScoredStock) {
   return {
     stockId: stock.symbol,

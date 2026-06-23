@@ -4,15 +4,23 @@ import { useState } from "react";
 import type { ScoredStock } from "@/lib/stock-radar/types";
 import {
   formatMultiplier,
+  formatNetBuy,
   formatPercent,
   formatPrice,
   formatVolume,
 } from "@/lib/stock-radar/format";
 import { buildConditionReasons } from "./condition-reasons";
+import { getSpotlightTags } from "@/lib/stock-radar/categories";
 import { ScoreBadge, StockLabelBadge } from "./StockBadge";
+import { ScoreBreakdownPanel } from "./ScoreBreakdownPanel";
+import { SpotlightTags } from "./SpotlightTags";
+import { StarButton } from "./StarButton";
+import { StockChipSummary } from "./StockChipSummary";
 
 interface StockCardProps {
   stock: ScoredStock;
+  watchlisted: boolean;
+  onToggleWatchlist: () => void;
 }
 
 function MetricBlock({
@@ -57,28 +65,40 @@ function StatusRow({
   );
 }
 
-export function StockCard({ stock }: StockCardProps) {
+export function StockCard({
+  stock,
+  watchlisted,
+  onToggleWatchlist,
+}: StockCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [showBreakdown, setShowBreakdown] = useState(false);
   const isUp = stock.changePercent > 0;
   const isDown = stock.changePercent < 0;
   const reasons = buildConditionReasons(stock);
+  const spotlightTags = getSpotlightTags(stock);
 
   return (
     <article className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-zinc-200/80">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h2 className="text-2xl font-bold text-zinc-900">{stock.symbol}</h2>
           <p className="mt-0.5 text-base font-medium text-zinc-600">
             {stock.name}
           </p>
-          <div className="mt-3">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <StockLabelBadge label={stock.label} />
+            <SpotlightTags tags={spotlightTags} />
           </div>
         </div>
-        <ScoreBadge score={stock.score} />
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <StarButton active={watchlisted} onToggle={onToggleWatchlist} />
+          <ScoreBadge score={stock.score} />
+        </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-3">
+      <StockChipSummary stock={stock} className="mt-4" />
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
         <MetricBlock
           label="今日漲幅"
           value={formatPercent(stock.changePercent)}
@@ -100,16 +120,35 @@ export function StockCard({ stock }: StockCardProps) {
           positive={stock.brokeHigh20}
         />
         <StatusRow
+          label="整理突破"
+          value={stock.consolidationBreakout ? "橫盤後突破" : "未突破"}
+          positive={stock.consolidationBreakout}
+        />
+        <StatusRow
           label="均線狀態"
-          value={stock.isBullishMA ? "多頭排列" : "尚未多頭"}
-          positive={stock.isBullishMA}
+          value={stock.isMaStructure ? "5>10>20>60" : "尚未完整"}
+          positive={stock.isMaStructure}
         />
       </div>
 
       <button
         type="button"
+        onClick={() => setShowBreakdown((prev) => !prev)}
+        className="mt-4 flex w-full items-center justify-center rounded-xl bg-zinc-900 px-4 py-3 text-sm font-semibold text-white"
+      >
+        {showBreakdown ? "收起分數細項" : "查看分數細項"}
+      </button>
+
+      {showBreakdown && (
+        <div className="mt-3">
+          <ScoreBreakdownPanel stock={stock} />
+        </div>
+      )}
+
+      <button
+        type="button"
         onClick={() => setExpanded((prev) => !prev)}
-        className="mt-4 flex w-full items-center justify-center rounded-xl bg-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-200/80"
+        className="mt-3 flex w-full items-center justify-center rounded-xl bg-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-200/80"
       >
         {expanded ? "收起詳情" : "查看詳情"}
       </button>
@@ -143,11 +182,12 @@ export function StockCard({ stock }: StockCardProps) {
               {[
                 ["收盤價", formatPrice(stock.closePrice)],
                 ["成交量", formatVolume(stock.volume)],
+                ["外資買賣超", formatNetBuy(stock.foreignNetToday)],
+                ["投信買賣超", formatNetBuy(stock.trustNetToday)],
                 ["20 日均量", formatVolume(stock.avgVolume20)],
                 ["20 日高點", formatPrice(stock.high20)],
                 ["5 日線", formatPrice(stock.ma5)],
-                ["10 日線", formatPrice(stock.ma10)],
-                ["20 日線", formatPrice(stock.ma20)],
+                ["60 日線", formatPrice(stock.ma60)],
               ].map(([label, value]) => (
                 <div
                   key={label}

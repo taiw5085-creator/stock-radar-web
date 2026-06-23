@@ -6,7 +6,6 @@ export interface ConditionReason {
   text: string;
 }
 
-/** 將四項條件轉成白話說明（僅供 UI 顯示，不影響計分） */
 export function buildConditionReasons(stock: ScoredStock): ConditionReason[] {
   const { conditions, volumeMultiplier, changePercent } = stock;
 
@@ -34,6 +33,32 @@ export function buildConditionReasons(stock: ScoredStock): ConditionReason[] {
       text: conditions.strongGain
         ? "今日漲幅超過 3%"
         : `今日漲幅未達 3%（${formatPercent(changePercent)}）`,
+    },
+    {
+      met: stock.foreignConsecutiveBuyDays >= 3,
+      text:
+        stock.foreignConsecutiveBuyDays >= 3
+          ? `外資連買 ${stock.foreignConsecutiveBuyDays} 天`
+          : `外資連買 ${stock.foreignConsecutiveBuyDays} 天（未達 3 天）`,
+    },
+    {
+      met: stock.trustConsecutiveBuyDays >= 3,
+      text:
+        stock.trustConsecutiveBuyDays >= 3
+          ? `投信連買 ${stock.trustConsecutiveBuyDays} 天`
+          : `投信連買 ${stock.trustConsecutiveBuyDays} 天（未達 3 天）`,
+    },
+    {
+      met: stock.consolidationBreakout,
+      text: stock.consolidationBreakout
+        ? "近 10 日橫盤後突破"
+        : "尚未出現整理突破",
+    },
+    {
+      met: stock.isMaStructure,
+      text: stock.isMaStructure
+        ? "均線結構 5>10>20>60"
+        : "均線結構尚未完整",
     },
   ];
 }

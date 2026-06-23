@@ -1,43 +1,92 @@
 /**
- * 台股飆股雷達 — 型別定義
- *
- * 之後串接正式 API / Supabase 時，可讓 API 回傳 RawStockData，
- * 再由 scoring 模組計算分數與標籤。
+ * 台股飆股雷達 — 型別定義（v2）
  */
 
-/** 原始行情資料（來自 mock 或未來 API） */
+/** 原始行情 + 籌碼資料（FinMind） */
 export interface RawStockData {
   symbol: string;
   name: string;
   closePrice: number;
   changePercent: number;
   volume: number;
+  yesterdayVolume: number;
   avgVolume20: number;
   ma5: number;
   ma10: number;
   ma20: number;
+  ma60: number;
   high20: number;
+  /** 外資今日買賣超（股） */
+  foreignNetToday: number;
+  /** 投信今日買賣超（股） */
+  trustNetToday: number;
+  /** 外資連買天數 */
+  foreignConsecutiveBuyDays: number;
+  /** 投信連買天數 */
+  trustConsecutiveBuyDays: number;
+  /** 近 10 日橫盤後突破 */
+  consolidationBreakout: boolean;
+  /** 近 10 日股價震盪幅度（%） */
+  priceRange10Pct: number;
+  /** 近 10 日均量是否逐漸放大 */
+  volumeTrendUp: boolean;
 }
 
-/** 四項飆股條件是否成立 */
+/** v1 四項飆股條件 */
 export interface StockConditions {
-  /** 今日成交量 > 20 日均量 × 1.5 */
   volumeSurge: boolean;
-  /** 收盤價 > 最近 20 日高點 */
   breakoutHigh20: boolean;
-  /** 收盤價 > 5 日線 > 10 日線 > 20 日線 */
   bullishMA: boolean;
-  /** 今日漲幅 > 3% */
   strongGain: boolean;
 }
+
+/** 單項計分 */
+export interface ScoreBreakdownItem {
+  id: string;
+  category: "v1" | "chip" | "volume" | "breakout" | "ma";
+  label: string;
+  points: number;
+  maxPoints: number;
+  met: boolean;
+  detail: string;
+}
+
+/** 分數細項與排序用子分數 */
+export interface ScoreBreakdown {
+  items: ScoreBreakdownItem[];
+  total: number;
+  sortScores: {
+    momentum: number;
+    chip: number;
+    volumeBreakout: number;
+    readyRise: number;
+  };
+}
+
+export type SortMode = "momentum" | "chip" | "volumeBreakout" | "readyRise";
+
+/** 首頁分類篩選 */
+export type CategoryKey =
+  | "all"
+  | "top10"
+  | "breakout"
+  | "volumeFirst"
+  | "accumulation"
+  | "watchlist";
+
+/** 分類標籤（不影響評分） */
+export type SpotlightTag = "剛突破" | "量先出來" | "吸籌觀察";
 
 /** 計分後的完整股票資料 */
 export interface ScoredStock extends RawStockData {
   volumeMultiplier: number;
+  volumeVsYesterday: number;
   brokeHigh20: boolean;
   isBullishMA: boolean;
+  isMaStructure: boolean;
   conditions: StockConditions;
   score: number;
+  scoreBreakdown: ScoreBreakdown;
   label: StockLabel;
 }
 
@@ -47,7 +96,6 @@ export type StockLabel =
   | "條件普通"
   | "暫不追蹤";
 
-/** 頁面頂部統計卡片資料 */
 export interface RadarStats {
   highScoreCount: number;
   topStock: { symbol: string; name: string; score: number } | null;

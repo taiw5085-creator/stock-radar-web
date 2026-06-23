@@ -7,23 +7,23 @@ const labelStyles: Record<StockLabel, string> = {
   暫不追蹤: "bg-zinc-100 text-zinc-600 ring-zinc-200",
 };
 
-/** 依分數回傳視覺層級（僅 UI） */
+/** 依總分回傳視覺層級（v2 滿分 210） */
 export function getScoreTier(score: number) {
-  if (score === 100) {
+  if (score >= 170) {
     return {
       label: "強勢",
       scoreClass: "text-emerald-600",
       bgClass: "bg-emerald-50 ring-emerald-100",
     };
   }
-  if (score === 75) {
+  if (score >= 130) {
     return {
       label: "觀察",
       scoreClass: "text-amber-600",
       bgClass: "bg-amber-50 ring-amber-100",
     };
   }
-  if (score === 50) {
+  if (score >= 90) {
     return {
       label: "普通",
       scoreClass: "text-slate-600",

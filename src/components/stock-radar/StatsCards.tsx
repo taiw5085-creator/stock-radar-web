@@ -14,7 +14,7 @@ export function StatsCards({ stats }: StatsCardsProps) {
           {stats.highScoreCount}
           <span className="ml-1.5 text-base font-medium text-zinc-400">檔</span>
         </p>
-        <p className="mt-1 text-sm text-zinc-500">75 分以上，值得優先關注</p>
+        <p className="mt-1 text-sm text-zinc-500">130 分以上，值得優先關注</p>
       </div>
 
       <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-zinc-100">

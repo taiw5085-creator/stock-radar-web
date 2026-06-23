@@ -1,6 +1,8 @@
 import { ScoreGuide } from "@/components/stock-radar/ScoreGuide";
 import { StatsCards } from "@/components/stock-radar/StatsCards";
 import { StockRadarView } from "@/components/stock-radar/StockRadarView";
+import { TopTen } from "@/components/stock-radar/TopTen";
+import { getTopTen } from "@/lib/stock-radar/categories";
 import {
   buildRadarStats,
   getScoredStocks,
@@ -9,8 +11,9 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function StockRadarPage() {
-  const stocks = await getScoredStocks();
+  const { stocks, source } = await getScoredStocks();
   const stats = buildRadarStats(stocks);
+  const topTen = getTopTen(stocks);
 
   return (
     <div className="min-h-full bg-zinc-100">
@@ -28,6 +31,10 @@ export default async function StockRadarPage() {
         </header>
 
         <div className="mb-6">
+          <TopTen stocks={topTen} />
+        </div>
+
+        <div className="mb-6">
           <StatsCards stats={stats} />
         </div>
 
@@ -38,7 +45,7 @@ export default async function StockRadarPage() {
         <StockRadarView stocks={stocks} />
 
         <footer className="mt-10 text-center text-sm text-zinc-400">
-          資料來源：FinMind API · 每日盤後更新
+          資料來源：{source === "mock" ? "Mock 假資料（API 暫不可用）" : "FinMind API"} · 每日盤後更新
         </footer>
       </div>
     </div>
