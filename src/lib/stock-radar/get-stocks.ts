@@ -1,17 +1,16 @@
-import { mockStocks } from "@/data/mock-stocks";
 import { scoreStock, sortByScore } from "./scoring";
+import { fetchWatchlistRawStocks } from "./finmind";
 import type { RadarStats, ScoredStock } from "./types";
 
 /**
  * 股票資料取得層
  *
- * 第一階段：使用 mock data
- * 第二階段：改為 fetch 台股 API
- * 第三階段：改為從 Supabase (stock-radar-db) 讀取每日快取
+ * 資料來源：FinMind API（TaiwanStockPrice）
+ * 之後可改為 Supabase (stock-radar-db) 每日快取
  */
 export async function getScoredStocks(): Promise<ScoredStock[]> {
-  // TODO: 替換為正式 API / Supabase 查詢
-  const scored = mockStocks.map(scoreStock);
+  const rawStocks = await fetchWatchlistRawStocks();
+  const scored = rawStocks.map(scoreStock);
   return sortByScore(scored);
 }
 
@@ -33,4 +32,17 @@ export function buildRadarStats(stocks: ScoredStock[]): RadarStats {
       : 0;
 
   return { highScoreCount, topStock, avgVolumeMultiplier };
+}
+
+/** 轉為 API 輸出格式（stockId / volumeRatio / breakout 等） */
+export function toStockRadarOutput(stock: ScoredStock) {
+  return {
+    stockId: stock.symbol,
+    stockName: stock.name,
+    score: stock.score,
+    changePercent: stock.changePercent,
+    volumeRatio: stock.volumeMultiplier,
+    breakout: stock.brokeHigh20,
+    bullishAlignment: stock.isBullishMA,
+  };
 }

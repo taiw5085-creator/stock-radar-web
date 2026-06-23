@@ -6,6 +6,8 @@ import {
   getScoredStocks,
 } from "@/lib/stock-radar/get-stocks";
 
+export const dynamic = "force-dynamic";
+
 export default async function StockRadarPage() {
   const stocks = await getScoredStocks();
   const stats = buildRadarStats(stocks);
@@ -36,7 +38,7 @@ export default async function StockRadarPage() {
         <StockRadarView stocks={stocks} />
 
         <footer className="mt-10 text-center text-sm text-zinc-400">
-          資料來源：Mock 假資料 · 待串接台股 API
+          資料來源：FinMind API · 每日盤後更新
         </footer>
       </div>
     </div>
