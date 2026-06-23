@@ -33,8 +33,8 @@ export function ProLiveSignals({
           {polling
             ? "更新中…"
             : lastUpdated
-              ? `${lastUpdated.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })} · 30秒`
-              : "每 30 秒更新"}
+              ? `${lastUpdated.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })} · 10秒`
+              : "每 10 秒更新"}
         </span>
       </div>
 

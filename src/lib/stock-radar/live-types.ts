@@ -21,3 +21,13 @@ export interface DataSourceMeta {
   mockCount: number;
   total: number;
 }
+
+/** Yahoo 即時報價 API 回應 */
+export interface QuotesApiResponse {
+  ok: boolean;
+  yahooCount: number;
+  total: number;
+  quotes: Record<string, LiveQuote>;
+  failed: string[];
+  message?: string;
+}

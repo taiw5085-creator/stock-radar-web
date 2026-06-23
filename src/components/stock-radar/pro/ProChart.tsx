@@ -12,15 +12,18 @@ import {
   type ISeriesApi,
 } from "lightweight-charts";
 import type { ScoredStock } from "@/lib/stock-radar/types";
+import type { LiveFlashField } from "@/lib/stock-radar/live-flash";
 import type { ChartSeriesPayload } from "@/lib/stock-radar/chart-types";
-import { formatPercent, formatPrice } from "@/lib/stock-radar/format";
+import { formatPercent, formatPrice, formatVolume } from "@/lib/stock-radar/format";
 import { QuoteSourceBadge } from "../QuoteSourceBadge";
+import { LiveFlashSpan } from "./LiveFlashSpan";
 
 interface ProChartProps {
   stock: ScoredStock | null;
+  isFlashing: (symbol: string, field: LiveFlashField) => boolean;
 }
 
-export function ProChart({ stock }: ProChartProps) {
+export function ProChart({ stock, isFlashing }: ProChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -161,6 +164,7 @@ export function ProChart({ stock }: ProChartProps) {
 
   const isUp = stock.changePercent > 0;
   const isDown = stock.changePercent < 0;
+  const symbol = stock.symbol;
 
   return (
     <section className="flex h-full min-h-0 flex-col rounded-xl border border-slate-700/60 bg-slate-900/80">
@@ -175,21 +179,36 @@ export function ProChart({ stock }: ProChartProps) {
             </h2>
             <QuoteSourceBadge source={stock.quoteSource} />
           </div>
-          <div className="mt-1 flex items-center gap-3 text-sm">
-            <span className="text-xl font-bold tabular-nums text-white">
+          <div className="mt-1 flex flex-wrap items-center gap-3 text-sm">
+            <LiveFlashSpan
+              active={isFlashing(symbol, "price")}
+              className="text-xl font-bold text-white"
+            >
               {formatPrice(stock.closePrice)}
-            </span>
-            <span
-              className={`font-semibold tabular-nums ${
+            </LiveFlashSpan>
+            <LiveFlashSpan
+              active={isFlashing(symbol, "changePercent")}
+              className={`font-semibold ${
                 isUp ? "text-red-400" : isDown ? "text-emerald-400" : "text-slate-400"
               }`}
             >
               {formatPercent(stock.changePercent)}
-            </span>
-            <span className="text-emerald-400">{stock.score} 分</span>
+            </LiveFlashSpan>
+            <LiveFlashSpan
+              active={isFlashing(symbol, "volume")}
+              className="text-slate-300"
+            >
+              量 {formatVolume(stock.volume)}
+            </LiveFlashSpan>
+            <LiveFlashSpan
+              active={isFlashing(symbol, "score")}
+              className="text-emerald-400"
+            >
+              {stock.score} 分
+            </LiveFlashSpan>
             {series && (
               <span className="text-[10px] text-slate-500">
-                K線：{series.source === "finmind" ? "FinMind" : "Mock"}
+                K線：{series.source === "finmind" ? "FinMind" : "Mock"}（盤中不刷新）
               </span>
             )}
           </div>

@@ -4,7 +4,7 @@
 
 import type { QuoteSource } from "./live-types";
 
-export type { QuoteSource, DataSourceMeta, LiveQuote } from "./live-types";
+export type { QuoteSource, DataSourceMeta, LiveQuote, QuotesApiResponse } from "./live-types";
 
 /** 原始行情 + 籌碼資料（FinMind） */
 export interface RawStockData {
