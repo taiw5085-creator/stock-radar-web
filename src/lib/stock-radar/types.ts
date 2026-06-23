@@ -1,6 +1,10 @@
 /**
- * 台股飆股雷達 — 型別定義（v2）
+ * 台股飆股雷達 — 型別定義（v2 + 雙資料源）
  */
+
+import type { QuoteSource } from "./live-types";
+
+export type { QuoteSource, DataSourceMeta, LiveQuote } from "./live-types";
 
 /** 原始行情 + 籌碼資料（FinMind） */
 export interface RawStockData {
@@ -74,8 +78,20 @@ export type CategoryKey =
   | "accumulation"
   | "watchlist";
 
+/** Pro 桌面版分類 */
+export type ProCategoryKey =
+  | "top10"
+  | "breakout"
+  | "volumeNotSpiked"
+  | "accumulation";
+
 /** 分類標籤（不影響評分） */
-export type SpotlightTag = "剛突破" | "量先出來" | "吸籌觀察";
+export type SpotlightTag =
+  | "剛突破"
+  | "量先出來"
+  | "吸籌觀察"
+  | "即時突破"
+  | "即時爆量";
 
 /** 計分後的完整股票資料 */
 export interface ScoredStock extends RawStockData {
@@ -88,6 +104,14 @@ export interface ScoredStock extends RawStockData {
   score: number;
   scoreBreakdown: ScoreBreakdown;
   label: StockLabel;
+  /** 今日最高價（Yahoo 即時） */
+  todayHigh: number;
+  /** 即時報價來源 */
+  quoteSource: QuoteSource;
+  /** 即時價突破 20 日高（Yahoo 價 vs FinMind 高點） */
+  liveBreakout: boolean;
+  /** 即時量增（Yahoo 量 vs FinMind 20 日均量） */
+  liveVolumeSurge: boolean;
 }
 
 export type StockLabel =

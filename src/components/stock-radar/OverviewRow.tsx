@@ -14,6 +14,7 @@ import { buildRiskHint, hasRisk } from "./risk-hints";
 import { ScoreBreakdownPanel } from "./ScoreBreakdownPanel";
 import { SpotlightTags } from "./SpotlightTags";
 import { StarButton } from "./StarButton";
+import { QuoteSourceBadge } from "./QuoteSourceBadge";
 
 interface OverviewRowProps {
   stock: ScoredStock;
@@ -72,6 +73,7 @@ export function OverviewRow({
             <span className="truncate text-sm text-zinc-600">{stock.name}</span>
           </div>
           <SpotlightTags tags={spotlightTags} className="mt-1.5" />
+          <QuoteSourceBadge source={stock.quoteSource} className="mt-1" />
         </div>
         <StarButton active={watchlisted} onToggle={onToggleWatchlist} />
         <div className="shrink-0 text-right">

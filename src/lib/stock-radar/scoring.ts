@@ -193,6 +193,10 @@ export function scoreStock(data: RawStockData): ScoredStock {
     score: scoreBreakdown.total,
     scoreBreakdown,
     label: getStockLabel(scoreBreakdown.total),
+    todayHigh: data.closePrice,
+    quoteSource: "finmind",
+    liveBreakout: conditions.breakoutHigh20,
+    liveVolumeSurge: conditions.volumeSurge,
   };
 }
 

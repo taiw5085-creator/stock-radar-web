@@ -39,6 +39,8 @@ export function getSpotlightTags(stock: ScoredStock): SpotlightTag[] {
   if (isJustBreakout(stock)) tags.push("剛突破");
   if (isVolumeFirst(stock)) tags.push("量先出來");
   if (isAccumulation(stock)) tags.push("吸籌觀察");
+  if (stock.liveBreakout && stock.quoteSource === "yahoo") tags.push("即時突破");
+  if (stock.liveVolumeSurge && stock.quoteSource === "yahoo") tags.push("即時爆量");
   return tags;
 }
 

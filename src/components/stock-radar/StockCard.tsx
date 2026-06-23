@@ -15,6 +15,7 @@ import { ScoreBadge, StockLabelBadge } from "./StockBadge";
 import { ScoreBreakdownPanel } from "./ScoreBreakdownPanel";
 import { SpotlightTags } from "./SpotlightTags";
 import { StarButton } from "./StarButton";
+import { QuoteSourceBadge } from "./QuoteSourceBadge";
 import { StockChipSummary } from "./StockChipSummary";
 
 interface StockCardProps {
@@ -87,6 +88,7 @@ export function StockCard({
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <StockLabelBadge label={stock.label} />
+            <QuoteSourceBadge source={stock.quoteSource} />
             <SpotlightTags tags={spotlightTags} />
           </div>
         </div>
@@ -114,6 +116,16 @@ export function StockCard({
       </div>
 
       <div className="mt-3 space-y-2">
+        <StatusRow
+          label="即時突破"
+          value={stock.liveBreakout ? "價格突破 20 日高" : "尚未突破"}
+          positive={stock.liveBreakout}
+        />
+        <StatusRow
+          label="即時爆量"
+          value={stock.liveVolumeSurge ? "量能放大中" : "正常"}
+          positive={stock.liveVolumeSurge}
+        />
         <StatusRow
           label="突破狀態"
           value={stock.brokeHigh20 ? "已突破 20 日高" : "尚未突破"}
@@ -181,6 +193,7 @@ export function StockCard({
             <dl className="grid grid-cols-2 gap-3 text-sm">
               {[
                 ["收盤價", formatPrice(stock.closePrice)],
+                ["今日最高", formatPrice(stock.todayHigh)],
                 ["成交量", formatVolume(stock.volume)],
                 ["外資買賣超", formatNetBuy(stock.foreignNetToday)],
                 ["投信買賣超", formatNetBuy(stock.trustNetToday)],

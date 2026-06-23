@@ -1,36 +1,100 @@
 import { getMockRawStocks } from "@/data/mock-stocks";
-import { scoreStock, sortByScore } from "./scoring";
+import { STOCK_WATCHLIST } from "@/data/stock-watchlist";
 import { fetchWatchlistRawStocks } from "./finmind";
+import { applyLiveQuote } from "./merge-live";
+import { fetchYahooQuotesBatch } from "./yahoo";
+import { scoreStock, sortByScore } from "./scoring";
+import type { DataSourceMeta } from "./live-types";
 import type { RadarStats, ScoredStock } from "./types";
 
-export type DataSource = "finmind" | "mock";
-
-function scoreFromRaw(rawStocks: ReturnType<typeof getMockRawStocks>): ScoredStock[] {
+function scoreFromRaw(
+  rawStocks: ReturnType<typeof getMockRawStocks>
+): ScoredStock[] {
   return sortByScore(rawStocks.map(scoreStock));
 }
 
+function buildMeta(
+  historical: "finmind" | "mock",
+  stocks: ScoredStock[]
+): DataSourceMeta {
+  const yahooCount = stocks.filter((s) => s.quoteSource === "yahoo").length;
+  const finmindFallbackCount = stocks.filter(
+    (s) => s.quoteSource === "finmind"
+  ).length;
+  const mockCount = stocks.filter((s) => s.quoteSource === "mock").length;
+
+  let live: DataSourceMeta["live"] = "mock";
+  if (historical === "finmind") {
+    live = yahooCount > 0 ? "yahoo" : "finmind";
+  }
+
+  return {
+    historical,
+    live,
+    yahooCount,
+    finmindFallbackCount,
+    mockCount,
+    total: stocks.length,
+  };
+}
+
 /**
- * 股票資料取得層
- * API 失敗或無資料時 fallback 至 mock
+ * 雙資料源取得層
+ * - FinMind：歷史日K、均線、20日高/均量、飆股分數
+ * - Yahoo：盤中即時價量（失敗 fallback FinMind）
+ * - 全失敗：mock
  */
 export async function getScoredStocks(): Promise<{
   stocks: ScoredStock[];
-  source: DataSource;
+  meta: DataSourceMeta;
 }> {
+  const historicalSource: "finmind" | "mock" = "finmind";
+  let rawStocks: Awaited<ReturnType<typeof fetchWatchlistRawStocks>> = [];
+
   try {
-    const rawStocks = await fetchWatchlistRawStocks();
-    if (rawStocks.length === 0) {
-      console.warn("[getScoredStocks] FinMind 無資料，使用 mock fallback");
-      return { stocks: scoreFromRaw(getMockRawStocks()), source: "mock" };
-    }
-    return {
-      stocks: sortByScore(rawStocks.map(scoreStock)),
-      source: "finmind",
-    };
+    rawStocks = await fetchWatchlistRawStocks();
   } catch (error) {
-    console.error("[getScoredStocks] FinMind 失敗，使用 mock fallback:", error);
-    return { stocks: scoreFromRaw(getMockRawStocks()), source: "mock" };
+    console.error("[getScoredStocks] FinMind 失敗:", error);
   }
+
+  if (rawStocks.length === 0) {
+    console.warn("[getScoredStocks] 使用 mock fallback");
+    const mockScored = scoreFromRaw(getMockRawStocks()).map((s) =>
+      applyLiveQuote(s, null, "mock")
+    );
+    return {
+      stocks: mockScored,
+      meta: {
+        historical: "mock",
+        live: "mock",
+        yahooCount: 0,
+        finmindFallbackCount: 0,
+        mockCount: mockScored.length,
+        total: mockScored.length,
+      },
+    };
+  }
+
+  const scored = sortByScore(rawStocks.map(scoreStock));
+  const yahooQuotes = await fetchYahooQuotesBatch(STOCK_WATCHLIST);
+
+  const withLive = scored.map((stock) =>
+    applyLiveQuote(
+      stock,
+      yahooQuotes.get(stock.symbol) ?? null,
+      historicalSource
+    )
+  );
+
+  return {
+    stocks: withLive,
+    meta: buildMeta(historicalSource, withLive),
+  };
+}
+
+/** 僅更新即時報價（供 API / client 輪詢） */
+export async function fetchLiveQuotesForSymbols(symbols: string[]) {
+  return fetchYahooQuotesBatch(symbols);
 }
 
 export function buildRadarStats(stocks: ScoredStock[]): RadarStats {
@@ -61,6 +125,8 @@ export function toStockRadarOutput(stock: ScoredStock) {
     changePercent: stock.changePercent,
     volumeRatio: stock.volumeMultiplier,
     breakout: stock.brokeHigh20,
+    liveBreakout: stock.liveBreakout,
     bullishAlignment: stock.isBullishMA,
+    quoteSource: stock.quoteSource,
   };
 }
