@@ -9,9 +9,14 @@ import type { RadarStats, ScoredStock } from "./types";
  * 之後可改為 Supabase (stock-radar-db) 每日快取
  */
 export async function getScoredStocks(): Promise<ScoredStock[]> {
-  const rawStocks = await fetchWatchlistRawStocks();
-  const scored = rawStocks.map(scoreStock);
-  return sortByScore(scored);
+  try {
+    const rawStocks = await fetchWatchlistRawStocks();
+    const scored = rawStocks.map(scoreStock);
+    return sortByScore(scored);
+  } catch (error) {
+    console.error("[getScoredStocks] FinMind 資料取得失敗:", error);
+    return [];
+  }
 }
 
 export function buildRadarStats(stocks: ScoredStock[]): RadarStats {

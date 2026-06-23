@@ -1,4 +1,5 @@
 import { STOCK_WATCHLIST } from "@/data/stock-watchlist";
+import { buildFinMindAuthHeader } from "./finmind-auth";
 import type { RawStockData } from "./types";
 
 const FINMIND_API = "https://api.finmindtrade.com/api/v4/data";
@@ -37,14 +38,6 @@ export interface StockRadarApiOutput {
   bullishAlignment: boolean;
 }
 
-function getToken(): string {
-  const token = process.env.FINMIND_TOKEN;
-  if (!token) {
-    throw new Error("FINMIND_TOKEN 未設定，請在 .env.local 填入 FinMind API Token");
-  }
-  return token;
-}
-
 function formatDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
@@ -65,8 +58,8 @@ async function finmindFetch<T>(
   });
 
   const response = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${getToken()}` },
-    next: { revalidate: 1800 },
+    headers: buildFinMindAuthHeader(),
+    cache: "no-store",
   });
 
   if (!response.ok) {
