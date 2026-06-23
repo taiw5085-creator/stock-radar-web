@@ -18,6 +18,7 @@ import {
   filterByRadarCategory,
   getTopTen,
 } from "@/lib/stock-radar/pro-categories";
+import { getTopVolumeStocks } from "@/lib/stock-radar/volume-rank";
 import { applyLiveQuote } from "@/lib/stock-radar/merge-live";
 import { detectLiveChanges, isFieldFlashing } from "@/lib/stock-radar/live-flash";
 import { detectIndexQuoteChanges } from "@/lib/stock-radar/index-flash";
@@ -32,6 +33,7 @@ import { ProRadarList } from "./ProRadarList";
 import { ProTopTenButton } from "./ProTopTenButton";
 import { ProChart, type ProMainViewMode } from "./ProChart";
 import { ProAiPanel } from "./ProAiPanel";
+import { ProVolumeTop6 } from "./ProVolumeTop6";
 import { ProLiveSignals } from "./ProLiveSignals";
 import { ProLinePushLog } from "./ProLinePushLog";
 import { ProLiveStatusBar } from "./ProLiveStatusBar";
@@ -119,6 +121,7 @@ export function ProDashboard({
   const radarCounts = useMemo(() => countRadarCategories(stocks), [stocks]);
   const topTenStocks = useMemo(() => getTopTen(stocks), [stocks]);
   const topRadarStock = useMemo(() => collectTopRadarStock(stocks), [stocks]);
+  const volumeTop6 = useMemo(() => getTopVolumeStocks(stocks, 6), [stocks]);
 
   const listStocks = useMemo(() => {
     if (showTopTen) return topTenStocks;
@@ -323,16 +326,32 @@ export function ProDashboard({
           </div>
         </main>
 
-        <aside className="hidden w-80 shrink-0 xl:flex xl:flex-col">
-          <ProAiPanel
-            viewMode={viewMode}
-            stock={selectedStock}
-            indexQuote={indexQuote}
+        <aside className="hidden w-80 shrink-0 flex-col gap-3 xl:flex">
+          <ProVolumeTop6
+            stocks={volumeTop6}
+            selectedSymbol={viewMode === "stock" ? selectedSymbol : null}
+            onSelect={handleSelectStock}
+            isFlashing={isFlashing}
           />
+          <div className="min-h-0 flex-1">
+            <ProAiPanel
+              viewMode={viewMode}
+              stock={selectedStock}
+              indexQuote={indexQuote}
+            />
+          </div>
         </aside>
       </div>
 
       <div className="border-t border-slate-800 p-3 xl:hidden">
+        <div className="mb-3">
+          <ProVolumeTop6
+            stocks={volumeTop6}
+            selectedSymbol={viewMode === "stock" ? selectedSymbol : null}
+            onSelect={handleSelectStock}
+            isFlashing={isFlashing}
+          />
+        </div>
         <ProAiPanel
           viewMode={viewMode}
           stock={selectedStock}

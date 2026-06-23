@@ -28,6 +28,12 @@ export function formatVolume(value: number): string {
   return value.toLocaleString("zh-TW");
 }
 
+/** 成交量（張）— 台股 1 張 = 1000 股 */
+export function formatVolumeLots(shares: number): string {
+  const lots = Math.round(shares / 1000);
+  return `${lots.toLocaleString("zh-TW")} 張`;
+}
+
 export function formatMultiplier(value: number): string {
   return `${value.toFixed(2)}x`;
 }
