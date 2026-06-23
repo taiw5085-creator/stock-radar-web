@@ -68,6 +68,31 @@ export async function fetchYahooQuote(stockId: string): Promise<LiveQuote | null
   return null;
 }
 
+/** 抓取加權指數 Yahoo 即時報價（^TWII） */
+export async function fetchYahooIndexQuote(): Promise<LiveQuote | null> {
+  try {
+    const url = `${YAHOO_CHART_API}/${encodeURIComponent("^TWII")}?interval=1d&range=1d`;
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; stock-radar-web/1.0; +https://github.com/taiw5085-creator/stock-radar-web)",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) return null;
+
+    const json = (await response.json()) as YahooChartResponse;
+    const meta = json.chart?.result?.[0]?.meta;
+    if (!meta) return null;
+
+    return parseYahooMeta("TAIEX", meta);
+  } catch (error) {
+    console.warn("[Yahoo] ^TWII 失敗:", error);
+    return null;
+  }
+}
+
 /** 批次抓取 Yahoo 即時報價 */
 export async function fetchYahooQuotesBatch(
   stockIds: readonly string[]

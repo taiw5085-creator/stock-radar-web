@@ -1,20 +1,24 @@
 "use client";
 
-import type { DataSourceMeta, RadarStats } from "@/lib/stock-radar/types";
+import type { DataSourceMeta, ScoredStock } from "@/lib/stock-radar/types";
 import { formatMultiplier } from "@/lib/stock-radar/format";
 
 interface ProMarketOverviewProps {
-  stats: RadarStats;
   meta: DataSourceMeta;
   stockCount: number;
   signalCount: number;
+  highScoreCount: number;
+  avgVolumeMultiplier: number;
+  topRadarStock: ScoredStock | null;
 }
 
 export function ProMarketOverview({
-  stats,
   meta,
   stockCount,
   signalCount,
+  highScoreCount,
+  avgVolumeMultiplier,
+  topRadarStock,
 }: ProMarketOverviewProps) {
   const historicalLabel =
     meta.historical === "mock" ? "Mock" : "FinMind";
@@ -32,7 +36,7 @@ export function ProMarketOverview({
       </h2>
       <div className="mt-3 grid grid-cols-2 gap-3">
         <div>
-          <p className="text-[10px] text-slate-500">監控標的</p>
+          <p className="text-[10px] text-slate-500">雷達標的</p>
           <p className="text-xl font-bold tabular-nums text-white">{stockCount}</p>
         </div>
         <div>
@@ -44,26 +48,28 @@ export function ProMarketOverview({
         <div>
           <p className="text-[10px] text-slate-500">高分標的</p>
           <p className="text-lg font-bold tabular-nums text-amber-400">
-            {stats.highScoreCount}
+            {highScoreCount}
           </p>
         </div>
         <div>
           <p className="text-[10px] text-slate-500">平均量能</p>
           <p className="text-lg font-bold tabular-nums text-blue-400">
-            {formatMultiplier(stats.avgVolumeMultiplier)}
+            {formatMultiplier(avgVolumeMultiplier)}
           </p>
         </div>
       </div>
-      {stats.topStock && (
-        <div className="mt-3 rounded-lg bg-slate-800/80 px-3 py-2">
-          <p className="text-[10px] text-slate-500">最強標的</p>
+      <div className="mt-3 rounded-lg bg-slate-800/80 px-3 py-2">
+        <p className="text-[10px] text-slate-500">最強標的</p>
+        {topRadarStock ? (
           <p className="text-sm font-semibold text-white">
-            {stats.topStock.symbol}{" "}
-            <span className="text-slate-400">{stats.topStock.name}</span>
-            <span className="ml-2 text-emerald-400">{stats.topStock.score} 分</span>
+            {topRadarStock.symbol}{" "}
+            <span className="text-slate-400">{topRadarStock.name}</span>
+            <span className="ml-2 text-emerald-400">{topRadarStock.score} 分</span>
           </p>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm font-semibold text-slate-500">暫無</p>
+        )}
+      </div>
       <p className="mt-3 text-[10px] text-slate-500">
         歷史 {historicalLabel} · 即時 {liveLabel}
       </p>

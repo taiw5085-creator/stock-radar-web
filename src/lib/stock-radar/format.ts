@@ -12,6 +12,12 @@ export function formatPercent(value: number): string {
   return `${sign}${value.toFixed(2)}%`;
 }
 
+/** 指數漲跌點數 */
+export function formatChangePoints(value: number): string {
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(2)}`;
+}
+
 export function formatVolume(value: number): string {
   if (value >= 1_000_000) {
     return `${(value / 1_000_000).toFixed(1)}M`;

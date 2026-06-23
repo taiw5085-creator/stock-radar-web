@@ -14,7 +14,7 @@ import { LiveFlashSpan } from "./LiveFlashSpan";
 interface ProRadarListProps {
   stocks: ScoredStock[];
   category: RadarListKey;
-  selectedSymbol: string;
+  selectedSymbol: string | null;
   counts: Record<RadarListKey, number>;
   onCategoryChange: (key: RadarListKey) => void;
   onSelect: (symbol: string) => void;
@@ -48,7 +48,7 @@ function StockRows({
   return (
     <>
       {stocks.map((stock) => {
-        const selected = stock.symbol === selectedSymbol;
+        const selected = selectedSymbol !== null && stock.symbol === selectedSymbol;
         const isUp = stock.changePercent > 0;
         const isDown = stock.changePercent < 0;
 

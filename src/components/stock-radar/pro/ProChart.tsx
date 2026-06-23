@@ -9,37 +9,53 @@ import {
   HistogramSeries,
   LineSeries,
   type IChartApi,
-  type ISeriesApi,
 } from "lightweight-charts";
 import type { ScoredStock } from "@/lib/stock-radar/types";
+import type { IndexQuote } from "@/lib/stock-radar/index-types";
 import type { LiveFlashField } from "@/lib/stock-radar/live-flash";
 import type { ChartSeriesPayload } from "@/lib/stock-radar/chart-types";
-import { formatPercent, formatPrice, formatVolume } from "@/lib/stock-radar/format";
+import {
+  formatChangePoints,
+  formatPercent,
+  formatPrice,
+  formatVolume,
+} from "@/lib/stock-radar/format";
 import { QuoteSourceBadge } from "../QuoteSourceBadge";
 import { LiveFlashSpan } from "./LiveFlashSpan";
 
+export type ProMainViewMode = "index" | "stock";
+
 interface ProChartProps {
+  viewMode: ProMainViewMode;
   stock: ScoredStock | null;
+  indexQuote: IndexQuote | null;
+  onBackToIndex: () => void;
   isFlashing: (symbol: string, field: LiveFlashField) => boolean;
+  indexFlashing: (field: LiveFlashField) => boolean;
 }
 
-export function ProChart({ stock, isFlashing }: ProChartProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<IChartApi | null>(null);
-  const candleRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
-  const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+function useChartSeries(viewMode: ProMainViewMode, stockSymbol: string | undefined) {
   const [series, setSeries] = useState<ChartSeriesPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!stock) return;
-
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setSeries(null);
 
-    fetch(`/api/stock-radar/chart?symbol=${stock.symbol}`)
+    const url =
+      viewMode === "index"
+        ? "/api/stock-radar/index/chart"
+        : `/api/stock-radar/chart?symbol=${stockSymbol}`;
+
+    if (viewMode === "stock" && !stockSymbol) {
+      setLoading(false);
+      return;
+    }
+
+    fetch(url)
       .then((res) => {
         if (!res.ok) throw new Error("K 線載入失敗");
         return res.json() as Promise<ChartSeriesPayload>;
@@ -57,7 +73,14 @@ export function ProChart({ stock, isFlashing }: ProChartProps) {
     return () => {
       cancelled = true;
     };
-  }, [stock?.symbol]);
+  }, [viewMode, stockSymbol]);
+
+  return { series, loading, error };
+}
+
+function ChartCanvas({ series }: { series: ChartSeriesPayload }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -66,8 +89,6 @@ export function ProChart({ stock, isFlashing }: ProChartProps) {
     if (chartRef.current) {
       chartRef.current.remove();
       chartRef.current = null;
-      candleRef.current = null;
-      volumeRef.current = null;
     }
 
     const chart = createChart(container, {
@@ -94,32 +115,21 @@ export function ProChart({ stock, isFlashing }: ProChartProps) {
       wickUpColor: "#ef4444",
       wickDownColor: "#22c55e",
     });
-
     candleSeries.setData(series.candles);
 
-    const ma5 = chart.addSeries(LineSeries, {
-      color: "#fbbf24",
-      lineWidth: 1,
-      priceLineVisible: false,
-      lastValueVisible: false,
-    });
-    ma5.setData(series.ma5);
-
-    const ma20 = chart.addSeries(LineSeries, {
-      color: "#60a5fa",
-      lineWidth: 1,
-      priceLineVisible: false,
-      lastValueVisible: false,
-    });
-    ma20.setData(series.ma20);
-
-    const ma60 = chart.addSeries(LineSeries, {
-      color: "#c084fc",
-      lineWidth: 1,
-      priceLineVisible: false,
-      lastValueVisible: false,
-    });
-    ma60.setData(series.ma60);
+    for (const [data, color] of [
+      [series.ma5, "#fbbf24"],
+      [series.ma20, "#60a5fa"],
+      [series.ma60, "#c084fc"],
+    ] as const) {
+      const line = chart.addSeries(LineSeries, {
+        color,
+        lineWidth: 1,
+        priceLineVisible: false,
+        lastValueVisible: false,
+      });
+      line.setData(data);
+    }
 
     chart.priceScale("").applyOptions({
       scaleMargins: { top: 0.8, bottom: 0 },
@@ -132,10 +142,7 @@ export function ProChart({ stock, isFlashing }: ProChartProps) {
     volumeSeries.setData(series.volumes);
 
     chart.timeScale().fitContent();
-
     chartRef.current = chart;
-    candleRef.current = candleSeries;
-    volumeRef.current = volumeSeries;
 
     const observer = new ResizeObserver(() => {
       if (container && chartRef.current) {
@@ -154,66 +161,169 @@ export function ProChart({ stock, isFlashing }: ProChartProps) {
     };
   }, [series]);
 
-  if (!stock) {
+  return <div ref={containerRef} className="h-full w-full min-h-[320px]" />;
+}
+
+export function ProChart({
+  viewMode,
+  stock,
+  indexQuote,
+  onBackToIndex,
+  isFlashing,
+  indexFlashing,
+}: ProChartProps) {
+  const { series, loading, error } = useChartSeries(
+    viewMode,
+    stock?.symbol
+  );
+
+  const isIndex = viewMode === "index";
+
+  if (isIndex && !indexQuote) {
     return (
       <div className="flex h-full items-center justify-center rounded-xl border border-slate-700/60 bg-slate-900/80 text-slate-500">
-        請從左側選擇股票
+        載入加權指數中…
       </div>
     );
   }
 
-  const isUp = stock.changePercent > 0;
-  const isDown = stock.changePercent < 0;
-  const symbol = stock.symbol;
+  if (!isIndex && !stock) {
+    return (
+      <div className="flex h-full items-center justify-center rounded-xl border border-slate-700/60 bg-slate-900/80 text-slate-500">
+        請從左側雷達清單選擇股票
+      </div>
+    );
+  }
+
+  const isUp = isIndex
+    ? (indexQuote?.changePercent ?? 0) > 0
+    : (stock?.changePercent ?? 0) > 0;
+  const isDown = isIndex
+    ? (indexQuote?.changePercent ?? 0) < 0
+    : (stock?.changePercent ?? 0) < 0;
 
   return (
     <section className="flex h-full min-h-0 flex-col rounded-xl border border-slate-700/60 bg-slate-900/80">
-      <div className="flex items-center justify-between border-b border-slate-700/60 px-4 py-3">
-        <div>
-          <div className="flex items-center gap-2">
+      <div className="flex items-start justify-between border-b border-slate-700/60 px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-bold text-white">
-              {stock.symbol}{" "}
-              <span className="text-sm font-medium text-slate-400">
-                {stock.name}
-              </span>
+              {isIndex ? (
+                "加權指數"
+              ) : (
+                <>
+                  {stock!.symbol}{" "}
+                  <span className="text-sm font-medium text-slate-400">
+                    {stock!.name}
+                  </span>
+                </>
+              )}
             </h2>
-            <QuoteSourceBadge source={stock.quoteSource} />
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-3 text-sm">
-            <LiveFlashSpan
-              active={isFlashing(symbol, "price")}
-              className="text-xl font-bold text-white"
-            >
-              {formatPrice(stock.closePrice)}
-            </LiveFlashSpan>
-            <LiveFlashSpan
-              active={isFlashing(symbol, "changePercent")}
-              className={`font-semibold ${
-                isUp ? "text-red-400" : isDown ? "text-emerald-400" : "text-slate-400"
-              }`}
-            >
-              {formatPercent(stock.changePercent)}
-            </LiveFlashSpan>
-            <LiveFlashSpan
-              active={isFlashing(symbol, "volume")}
-              className="text-slate-300"
-            >
-              量 {formatVolume(stock.volume)}
-            </LiveFlashSpan>
-            <LiveFlashSpan
-              active={isFlashing(symbol, "score")}
-              className="text-emerald-400"
-            >
-              {stock.score} 分
-            </LiveFlashSpan>
-            {series && (
-              <span className="text-[10px] text-slate-500">
-                K線：{series.source === "finmind" ? "FinMind" : "Mock"}（盤中不刷新）
-              </span>
+            {isIndex ? (
+              indexQuote && (
+                <QuoteSourceBadge source={indexQuote.quoteSource} />
+              )
+            ) : (
+              stock && <QuoteSourceBadge source={stock.quoteSource} />
+            )}
+            {!isIndex && (
+              <button
+                type="button"
+                onClick={onBackToIndex}
+                className="rounded-lg bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-700"
+              >
+                回到大盤
+              </button>
             )}
           </div>
+
+          {isIndex && indexQuote ? (
+            <div className="mt-1 flex flex-wrap items-center gap-3 text-sm">
+              <div>
+                <span className="text-[10px] text-slate-500">即時指數</span>
+                <LiveFlashSpan
+                  active={indexFlashing("price")}
+                  className="block text-xl font-bold text-white"
+                >
+                  {formatPrice(indexQuote.price)}
+                </LiveFlashSpan>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500">漲跌點數</span>
+                <LiveFlashSpan
+                  active={indexFlashing("changePercent")}
+                  className={`block font-semibold tabular-nums ${
+                    isUp ? "text-red-400" : isDown ? "text-emerald-400" : "text-slate-400"
+                  }`}
+                >
+                  {formatChangePoints(indexQuote.changePoints)}
+                </LiveFlashSpan>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500">漲跌幅</span>
+                <LiveFlashSpan
+                  active={indexFlashing("changePercent")}
+                  className={`block font-semibold tabular-nums ${
+                    isUp ? "text-red-400" : isDown ? "text-emerald-400" : "text-slate-400"
+                  }`}
+                >
+                  {formatPercent(indexQuote.changePercent)}
+                </LiveFlashSpan>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500">成交量</span>
+                <LiveFlashSpan
+                  active={indexFlashing("volume")}
+                  className="block font-semibold text-slate-300"
+                >
+                  {formatVolume(indexQuote.volume)}
+                </LiveFlashSpan>
+              </div>
+              {series && (
+                <span className="self-end text-[10px] text-slate-500">
+                  K線：{series.source === "finmind" ? "FinMind" : "Mock"}（盤中不刷新）
+                </span>
+              )}
+            </div>
+          ) : (
+            stock && (
+              <div className="mt-1 flex flex-wrap items-center gap-3 text-sm">
+                <LiveFlashSpan
+                  active={isFlashing(stock.symbol, "price")}
+                  className="text-xl font-bold text-white"
+                >
+                  {formatPrice(stock.closePrice)}
+                </LiveFlashSpan>
+                <LiveFlashSpan
+                  active={isFlashing(stock.symbol, "changePercent")}
+                  className={`font-semibold ${
+                    isUp ? "text-red-400" : isDown ? "text-emerald-400" : "text-slate-400"
+                  }`}
+                >
+                  {formatPercent(stock.changePercent)}
+                </LiveFlashSpan>
+                <LiveFlashSpan
+                  active={isFlashing(stock.symbol, "volume")}
+                  className="text-slate-300"
+                >
+                  量 {formatVolume(stock.volume)}
+                </LiveFlashSpan>
+                <LiveFlashSpan
+                  active={isFlashing(stock.symbol, "score")}
+                  className="text-emerald-400"
+                >
+                  {stock.score} 分
+                </LiveFlashSpan>
+                {series && (
+                  <span className="text-[10px] text-slate-500">
+                    K線：{series.source === "finmind" ? "FinMind" : "Mock"}（盤中不刷新）
+                  </span>
+                )}
+              </div>
+            )
+          )}
         </div>
-        <div className="flex gap-3 text-[10px] text-slate-500">
+        <div className="hidden shrink-0 gap-3 text-[10px] text-slate-500 sm:flex">
           <span className="flex items-center gap-1">
             <span className="inline-block h-0.5 w-3 bg-amber-400" /> MA5
           </span>
@@ -237,7 +347,7 @@ export function ProChart({ stock, isFlashing }: ProChartProps) {
             {error}
           </div>
         )}
-        <div ref={containerRef} className="h-full w-full min-h-[320px]" />
+        {series && <ChartCanvas series={series} />}
       </div>
     </section>
   );

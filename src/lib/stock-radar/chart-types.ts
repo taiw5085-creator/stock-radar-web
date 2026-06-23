@@ -21,6 +21,7 @@ export interface ChartMaLine {
 
 export interface ChartSeriesPayload {
   symbol: string;
+  name?: string;
   candles: ChartCandle[];
   volumes: ChartVolumeBar[];
   ma5: ChartMaLine[];

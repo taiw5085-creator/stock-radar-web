@@ -2,13 +2,18 @@
 
 import { useMemo } from "react";
 import type { ScoredStock } from "@/lib/stock-radar/types";
+import type { IndexQuote } from "@/lib/stock-radar/index-types";
 import { buildAiAnalysis } from "@/lib/stock-radar/ai-analysis";
+import { buildMarketAiAnalysis } from "@/lib/stock-radar/market-ai-analysis";
 import { getSpotlightTags } from "@/lib/stock-radar/categories";
 import { SpotlightTags } from "../SpotlightTags";
 import { ScoreBreakdownPanel } from "../ScoreBreakdownPanel";
+import type { ProMainViewMode } from "./ProChart";
 
 interface ProAiPanelProps {
+  viewMode: ProMainViewMode;
   stock: ScoredStock | null;
+  indexQuote: IndexQuote | null;
 }
 
 const toneStyles = {
@@ -17,21 +22,31 @@ const toneStyles = {
   warning: "border-amber-500/30 bg-amber-500/10",
 };
 
-export function ProAiPanel({ stock }: ProAiPanelProps) {
-  const analysis = useMemo(
-    () => (stock ? buildAiAnalysis(stock) : null),
+export function ProAiPanel({ viewMode, stock, indexQuote }: ProAiPanelProps) {
+  const analysis = useMemo(() => {
+    if (viewMode === "index" && indexQuote) {
+      return buildMarketAiAnalysis(indexQuote);
+    }
+    if (viewMode === "stock" && stock) {
+      return buildAiAnalysis(stock);
+    }
+    return null;
+  }, [viewMode, stock, indexQuote]);
+
+  const tags = useMemo(
+    () => (stock ? getSpotlightTags(stock) : []),
     [stock]
   );
 
-  if (!stock || !analysis) {
+  if (!analysis) {
     return (
       <section className="flex h-full items-center justify-center rounded-xl border border-slate-700/60 bg-slate-900/80 p-4 text-sm text-slate-500">
-        選擇股票後顯示 AI 判讀
+        載入 AI 判讀中…
       </section>
     );
   }
 
-  const tags = getSpotlightTags(stock);
+  const isIndex = viewMode === "index";
 
   return (
     <section className="flex h-full min-h-0 flex-col rounded-xl border border-slate-700/60 bg-slate-900/80">
@@ -40,21 +55,27 @@ export function ProAiPanel({ stock }: ProAiPanelProps) {
           AI 判讀
         </h2>
         <p className="mt-1 text-[10px] text-slate-500">
-          規則式分析 · 非投資建議
+          {isIndex ? "大盤判讀" : "個股判讀"} · 規則式分析 · 非投資建議
         </p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
         <div className="rounded-lg bg-slate-800/80 p-3">
           <div className="flex items-center justify-between">
-            <span className="text-2xl font-bold text-emerald-400">
-              {analysis.score}
-            </span>
+            {isIndex ? (
+              <span className="text-lg font-bold text-emerald-400">加權指數</span>
+            ) : (
+              <span className="text-2xl font-bold text-emerald-400">
+                {analysis.score}
+              </span>
+            )}
             <span className="text-xs font-semibold text-slate-300">
               {analysis.label}
             </span>
           </div>
-          <SpotlightTags tags={tags} className="mt-2" />
+          {!isIndex && tags.length > 0 && (
+            <SpotlightTags tags={tags} className="mt-2" />
+          )}
         </div>
 
         <p className="mt-4 text-sm leading-relaxed text-slate-300">
@@ -75,9 +96,11 @@ export function ProAiPanel({ stock }: ProAiPanelProps) {
           ))}
         </div>
 
-        <div className="mt-4">
-          <ScoreBreakdownPanel stock={stock} />
-        </div>
+        {!isIndex && stock && (
+          <div className="mt-4">
+            <ScoreBreakdownPanel stock={stock} />
+          </div>
+        )}
       </div>
     </section>
   );
